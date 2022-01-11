@@ -2,7 +2,7 @@ use super::{
     enter::EnterGuard,
     scheduler::Scheduler,
     task::{JoinHandle, Task},
-    thread::{Thread, ThreadContext},
+    thread::Thread,
 };
 use std::{fmt, future::Future, sync::Arc};
 
@@ -34,8 +34,8 @@ impl fmt::Debug for TryCurrentError {
 impl fmt::Display for TryCurrentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.missing {
-            true => write!(f, Thread::CONTEXT_MISSING_ERROR),
-            false => write!(f, Thread::CONTEXT_DESTROYED_ERROR),
+            true => f.write_str(Thread::CONTEXT_MISSING_ERROR),
+            false => f.write_str(Thread::CONTEXT_DESTROYED_ERROR),
         }
     }
 }

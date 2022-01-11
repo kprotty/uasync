@@ -1,6 +1,7 @@
 use super::{scheduler::Scheduler, task::Runnable};
 use std::{
     cell::{Cell, RefCell},
+    mem::replace,
     ops::Deref,
     rc::Rc,
     sync::Arc,

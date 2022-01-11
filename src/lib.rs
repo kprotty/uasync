@@ -11,7 +11,7 @@ mod thread_pool;
 pub mod runtime {
     pub use crate::thread_pool::{
         builder::Builder,
-        enter::Enter,
+        enter::EnterGuard,
         handle::{Handle, TryCurrentError},
         runtime::Runtime,
     };

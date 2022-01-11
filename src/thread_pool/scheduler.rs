@@ -2,7 +2,8 @@ use super::{
     queue::Queue,
     random::{RandomSequence, Rng},
     semaphore::Semaphore,
-    thread::{Thread, ThreadContext},
+    task::Runnable,
+    thread::Thread,
 };
 use std::{
     num::NonZeroUsize,

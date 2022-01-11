@@ -24,7 +24,7 @@ impl Iterator for Rng {
             _ => unreachable!(),
         };
 
-        let mut xs = xorshift.get();
+        let mut xs = self.xorshift.get();
         xs ^= xs >> shifts.0;
         xs ^= xs << shifts.1;
         xs ^= xs >> shifts.2;

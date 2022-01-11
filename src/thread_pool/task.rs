@@ -1,8 +1,4 @@
-use super::{
-    scheduler::Scheduler,
-    thread::{Thread, ThreadContext},
-    waker::AtomicWaker,
-};
+use super::{scheduler::Scheduler, thread::Thread, waker::AtomicWaker};
 use std::{
     any::Any,
     fmt,
@@ -34,7 +30,9 @@ pub struct JoinHandle<T> {
 impl<T> JoinHandle<T> {
     pub fn abort(&self) {
         if let Some(joinable) = self.joinable.as_ref() {
-            joinable.abort();
+            if joinable.poll_abort() {
+                Waker::from(joinable.clone()).wake();
+            }
         }
     }
 }
@@ -102,7 +100,7 @@ impl JoinError {
         self.panic.is_some()
     }
 
-    pub fn try_into_panic(self) -> Result<Box<dyn Any + Send + 'static, Self>> {
+    pub fn try_into_panic(self) -> Result<Box<dyn Any + Send + 'static>, JoinError> {
         match self.panic {
             Some(panic) => Ok(panic),
             None => Err(self),
@@ -203,7 +201,7 @@ pub(super) struct Task<F: Future> {
 }
 
 impl<F: Future> Task<F> {
-    pub(super) fn block_on<F: Future>(self: &Arc<Self>, mut future: Pin<Box<F>>) -> F::Output {
+    pub(super) fn block_on(self: &Arc<Self>, mut future: Pin<Box<F>>) -> F::Output {
         struct Parker {
             thread: thread::Thread,
             unparked: AtomicBool,
@@ -270,7 +268,7 @@ where
 {
     pub(super) fn spawn(
         scheduler: &Arc<Scheduler>,
-        thread: Option<&Rc<Thread>>,
+        thread: Option<&Thread>,
         future: Pin<Box<F>>,
     ) -> JoinHandle<F::Output> {
         let task = Arc::new(Task {
@@ -318,7 +316,7 @@ where
     }
 }
 
-trait Runnable: Send + Sync {
+pub(super) trait Runnable: Send + Sync {
     fn run(self: Arc<Self>, thread: &Thread);
 }
 
@@ -327,7 +325,7 @@ where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
-    fn run(self: Arc<Self>, thread: &Rc<Thread>) {
+    fn run(self: Arc<Self>, thread: &Thread) {
         let mut data = self.data.try_lock().unwrap();
         *data = match self.state.transition_to_running() {
             false => TaskData::Aborted,
@@ -361,9 +359,9 @@ where
     }
 }
 
-trait Joinable<T>: Send + Sync {
+trait Joinable<T>: Send + Sync + 'static {
     fn poll_join(&self, ctx: &mut Context<'_>) -> Poll<Result<T, JoinError>>;
-    fn abort(self: &Arc<Self>);
+    fn poll_abort(&self) -> bool;
 }
 
 impl<F> Joinable<F::Output> for Task<F>
@@ -384,9 +382,7 @@ where
         }
     }
 
-    fn abort(self: &Arc<Self>) {
-        if self.state.transition_to_aborted() {
-            self.wake_by_ref();
-        }
+    fn poll_abort(&self) -> bool {
+        self.state.transition_to_aborted()
     }
 }

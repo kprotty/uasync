@@ -5,6 +5,40 @@ use std::{
     future::Future,
 };
 
+pub struct TryCurrentError {
+    missing: bool,
+}
+
+impl TryCurrentError {
+    pub fn is_missing_context(&self) -> bool {
+        self.missing
+    }
+
+    pub fn is_thread_local_destroyed(&self) -> bool {
+        !self.missing
+    }
+}
+
+impl std::error::Error for TryCurrentError {}
+
+impl fmt::Debug for TryCurrentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.missing {
+            true => write!(f, "NoContext"),
+            false => write!(f, "ThreadLocalDestroyed"),
+        }
+    }
+}
+
+impl fmt::Display for TryCurrentError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.missing {
+            true => write!(f, Thread::CONTEXT_MISSING_ERROR),
+            false => write!(f, Thread::CONTEXT_DESTROYED_ERROR),
+        }
+    }
+}
+
 pub struct Handle {
     pub(super) scheduler: Arc<Scheduler>,
 }
@@ -30,10 +64,12 @@ impl Handle {
         }
     }
 
-    pub fn try_current() -> Option<Self> {
-        Thread::try_current().map(|thread| Self {
-            scheduler: thread.scheduler.clone(),
-        })
+    pub fn try_current() -> Result<Self, TryCurrentError> {
+        match Thread::try_current() {
+            Ok(Some(thread)) => Ok(Self { scheduler: thread.scheduler.clone() }),
+            Ok(None) => Err(TryCurrentError { missing: true }),
+            Err(_) => Err(TryCurrentError { missing: false }),
+        }
     }
 
     pub fn enter(&self) -> EnterGuard<'_> {

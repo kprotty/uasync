@@ -303,7 +303,7 @@ where
 {
     fn wake(self: Arc<Self>) {
         if self.state.transition_to_scheduled() {
-            match Thread::try_current() {
+            match Thread::try_current().ok() {
                 Some(thread) => thread.scheduler.schedule(self, Some(&thread), false),
                 None => self.scheduler.schedule(self.clone(), None, false),
             }
@@ -313,7 +313,7 @@ where
     fn wake_by_ref(self: &Arc<Self>) {
         if self.state.transition_to_scheduled() {
             let task = self.clone();
-            match Thread::try_current() {
+            match Thread::try_current().ok() {
                 Some(thread) => thread.scheduler.schedule(task, Some(&thread), false),
                 None => self.scheduler.schedule(task, None, false),
             }

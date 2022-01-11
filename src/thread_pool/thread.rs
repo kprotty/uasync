@@ -33,8 +33,7 @@ impl Thread {
         "ThreadLocal runtime context was destroyed";
 
     pub(super) fn try_current() -> Result<Option<Self>, ()> {
-        let context = ThreadContext::try_with(|tls| tls.as_ref().map(Rc::clone))?;
-        Ok(context.map(|context| Self { context }))
+        ThreadContext::try_with(|tls| tls.as_ref().map(|context| Self { context: context.clone() }))
     }
 
     pub(super) fn current() -> Self {
@@ -77,9 +76,10 @@ impl Deref for Thread {
 
 impl Drop for Thread {
     fn drop(&mut self) {
-        assert!(Rc::strong_count(&self.context) == 2);
-        let context = ThreadContext::try_with(|tls| replace(tls, None));
-        let context = context.unwrap().unwrap();
-        assert!(Rc::ptr_eq(&context, &self.context));
+        if Rc::strong_count(&self.context) == 2 {
+            let context = ThreadContext::try_with(|tls| replace(tls, None));
+            let context = context.unwrap().unwrap();
+            assert!(Rc::ptr_eq(&context, &self.context));
+        }
     }
 }

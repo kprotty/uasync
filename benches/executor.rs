@@ -118,11 +118,24 @@ impl BenchExecutor for AsyncExecutor {
 
 struct UasyncExecutor;
 
+struct UasyncJoinHandle<T>(uasync::task::JoinHandle<T>);
+
+impl<T> Future for UasyncJoinHandle<T> {
+    type Output = T;
+
+    fn poll(mut self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
+        match Pin::new(&mut self.0).poll(ctx) {
+            Poll::Ready(result) => Poll::Ready(result.unwrap()),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
 impl BenchExecutor for UasyncExecutor {
-    type JoinHandle = uasync::JoinHandle<()>;
+    type JoinHandle = UasyncJoinHandle<()>;
 
     fn block_on<F: Future<Output = ()>>(future: F) {
-        uasync::Builder::new_multi_thread()
+        uasync::runtime::Builder::new_multi_thread()
             .worker_threads(num_cpus::get())
             .build()
             .unwrap()
@@ -130,7 +143,7 @@ impl BenchExecutor for UasyncExecutor {
     }
 
     fn spawn<F: Future<Output = ()> + Send + 'static>(future: F) -> Self::JoinHandle {
-        uasync::spawn(future)
+        UasyncJoinHandle(uasync::spawn(future))
     }
 }
 

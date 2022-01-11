@@ -16,8 +16,9 @@ pub(super) struct ThreadContext {
 
 impl ThreadContext {
     fn try_with<F>(f: impl FnOnce(&mut Option<Rc<Self>>) -> F) -> Result<F, ()> {
-        thread_local!(static TLS: RefCell<Option<Rc<Thread>>> = RefCell::new(None));
-        TLS.try_with(|ref_cell| f(&mut *ref_cell.borrow_mut())).ok()
+        thread_local!(static TLS: RefCell<Option<Rc<ThreadContext>>> = RefCell::new(None));
+        TLS.try_with(|ref_cell| f(&mut *ref_cell.borrow_mut()))
+            .map_err(|_| ())
     }
 }
 
@@ -77,7 +78,8 @@ impl Deref for Thread {
 impl Drop for Thread {
     fn drop(&mut self) {
         assert!(Rc::strong_count(&self.context) == 2);
-        let context = ThreadContext::with_tls(|tls| replace(tls, None)).unwrap();
+        let context = ThreadContext::try_with(|tls| replace(tls, None));
+        let context = context.unwrap().unwrap();
         assert!(Rc::ptr_eq(&context, &self.context));
     }
 }

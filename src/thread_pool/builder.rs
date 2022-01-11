@@ -1,4 +1,4 @@
-use super::{runtime::Runtime, scheduler::Scheduler};
+use super::{handle::Handle, runtime::Runtime, scheduler::Scheduler};
 use std::{fmt, io, num::NonZeroUsize, sync::Arc, thread};
 
 pub struct Builder {
@@ -80,7 +80,7 @@ impl Builder {
             self.on_thread_unpark.as_ref().map(Arc::clone),
         ));
 
-        for queue_index in 0..scheduler.run_queues.len() {
+        for queue_index in 0..scheduler.worker_threads().get() {
             let mut builder = thread::Builder::new();
             if let Some(on_thread_name) = self.on_thread_name.as_ref() {
                 builder = builder.name((on_thread_name)());
@@ -113,6 +113,9 @@ impl Builder {
             }
         }
 
-        Ok(Runtime::from(scheduler))
+        Ok(Runtime {
+            handle: Handle { scheduler },
+            shutdown_on_drop: true,
+        })
     }
 }

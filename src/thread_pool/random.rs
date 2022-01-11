@@ -57,12 +57,13 @@ impl RandomSequence {
             co_prime: (range.get() / 2..range.get())
                 .filter(|&n| gcd(n, range.get()) == 1)
                 .next()
+                .and_then(NonZeroUsize::new)
                 .or(NonZeroUsize::new(1))
                 .unwrap(),
         }
     }
 
-    pub fn iter(&self, seed: usize) -> impl Iterator<Item = usize> {
+    pub(super) fn iter(&self, seed: usize) -> impl Iterator<Item = usize> {
         let prime = self.co_prime.get();
         let range = self.range.get();
         let mut index = seed % range;

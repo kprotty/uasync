@@ -48,6 +48,10 @@ impl Scheduler {
         }
     }
 
+    pub(super) fn worker_threads(&self) -> NonZeroUsize {
+        NonZeroUsize::new(self.run_queues.len()).unwrap()
+    }
+
     pub(super) fn schedule(
         &self,
         runnable: Arc<dyn Runnable>,
@@ -300,7 +304,7 @@ impl Scheduler {
             if let Some(runnable) = polled {
                 is_searching = self.discovered(is_searching);
                 tick = tick.wrapping_add(1);
-                runnable.run(thread);
+                runnable.run(&thread);
                 continue;
             }
 

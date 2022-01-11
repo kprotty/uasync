@@ -31,9 +31,15 @@ impl<T> JoinHandle<T> {
     pub fn abort(&self) {
         if let Some(joinable) = self.joinable.as_ref() {
             if joinable.poll_abort() {
-                Waker::from(joinable.clone()).wake();
+                joinable.clone().abort();
             }
         }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for JoinHandle<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("JoinHandle").finish()
     }
 }
 
@@ -201,7 +207,7 @@ pub(super) struct Task<F: Future> {
 }
 
 impl<F: Future> Task<F> {
-    pub(super) fn block_on(self: &Arc<Self>, mut future: Pin<Box<F>>) -> F::Output {
+    pub(super) fn block_on(scheduler: &Arc<Scheduler>, mut future: Pin<Box<F>>) -> F::Output {
         struct Parker {
             thread: thread::Thread,
             unparked: AtomicBool,
@@ -239,12 +245,12 @@ impl<F: Future> Task<F> {
             let waker = Waker::from(parker.clone());
             let mut ctx = Context::from_waker(&waker);
 
-            let thread_enter = Thread::enter(self, None);
-            if !Arc::ptr_eq(&thread_enter.thread.scheduler, self) {
+            let thread = Thread::enter(scheduler, None);
+            if !Arc::ptr_eq(&thread.scheduler, scheduler) {
                 unreachable!("nested block_on() is not supported");
             }
 
-            self.on_task_begin();
+            scheduler.on_task_begin();
             catch_unwind(AssertUnwindSafe(|| loop {
                 match future.as_mut().poll(&mut ctx) {
                     Poll::Ready(output) => break output,
@@ -253,7 +259,7 @@ impl<F: Future> Task<F> {
             }))
         };
 
-        self.on_task_complete();
+        scheduler.on_task_complete();
         match result {
             Ok(output) => output,
             Err(error) => resume_unwind(error),
@@ -298,7 +304,7 @@ where
 {
     fn wake(self: Arc<Self>) {
         if self.state.transition_to_scheduled() {
-            match Thread::try_current().ok() {
+            match Thread::try_current().ok().flatten() {
                 Some(thread) => thread.scheduler.schedule(self, Some(&thread), false),
                 None => self.scheduler.schedule(self.clone(), None, false),
             }
@@ -308,7 +314,7 @@ where
     fn wake_by_ref(self: &Arc<Self>) {
         if self.state.transition_to_scheduled() {
             let task = self.clone();
-            match Thread::try_current().ok() {
+            match Thread::try_current().ok().flatten() {
                 Some(thread) => thread.scheduler.schedule(task, Some(&thread), false),
                 None => self.scheduler.schedule(task, None, false),
             }
@@ -359,9 +365,10 @@ where
     }
 }
 
-trait Joinable<T>: Send + Sync + 'static {
+trait Joinable<T>: Send + Sync {
     fn poll_join(&self, ctx: &mut Context<'_>) -> Poll<Result<T, JoinError>>;
     fn poll_abort(&self) -> bool;
+    fn abort(self: Arc<Self>);
 }
 
 impl<F> Joinable<F::Output> for Task<F>
@@ -369,7 +376,7 @@ where
     F: Future + Send + 'static,
     F::Output: Send + 'static,
 {
-    fn poll_join(&self, ctx: &mut Context<'_>) -> Poll<F::Output> {
+    fn poll_join(&self, ctx: &mut Context<'_>) -> Poll<Result<F::Output, JoinError>> {
         if let Poll::Pending = self.waker.poll(ctx) {
             return Poll::Pending;
         }
@@ -384,5 +391,9 @@ where
 
     fn poll_abort(&self) -> bool {
         self.state.transition_to_aborted()
+    }
+
+    fn abort(self: Arc<Self>) {
+        self.wake()
     }
 }

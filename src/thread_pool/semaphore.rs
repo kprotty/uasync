@@ -5,7 +5,7 @@ use std::{
 };
 
 #[derive(Default)]
-pub struct Semaphore {
+pub(super) struct Semaphore {
     value: AtomicIsize,
     inner: InnerSemaphore,
 }

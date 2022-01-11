@@ -7,8 +7,8 @@ use super::{
 use std::{fmt, future::Future, io, mem::replace, time::Duration};
 
 pub struct Runtime {
-    handle: Handle,
-    shutdown: bool,
+    pub(super) handle: Handle,
+    pub(super) shutdown_on_drop: bool,
 }
 
 impl fmt::Debug for Runtime {
@@ -18,13 +18,6 @@ impl fmt::Debug for Runtime {
 }
 
 impl Runtime {
-    pub(crate) fn from(handle: Handle) -> Self {
-        Self {
-            handle,
-            shutdown: true,
-        }
-    }
-
     pub fn new() -> io::Result<Self> {
         Builder::new_multi_thread().build()
     }
@@ -62,7 +55,7 @@ impl Runtime {
     }
 
     fn shutdown_and_join(&mut self, join_timeout: Option<Option<Duration>>) {
-        if replace(&mut self.shutdown, false) {
+        if replace(&mut self.shutdown_on_drop, false) {
             self.handle.scheduler.shutdown();
 
             if let Some(timeout) = join_timeout {

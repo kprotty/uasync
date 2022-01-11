@@ -173,173 +173,199 @@ benchmark_group!(
     bench_spawn_inject_tokio,
     bench_spawn_inject_async_executor
 );
-benchmark_main!(spawn_inject);
 
-// #[bench]
-// fn bench_spawn_in_worker_uasync(b: &mut Bencher) {
-//     bench_spawn_in_worker::<UasyncExecutor>(b)
-// }
+fn bench_spawn_in_worker_uasync(b: &mut Bencher) {
+    bench_spawn_in_worker::<UasyncExecutor>(b)
+}
 
-// #[bench]
-// fn bench_spawn_in_worker_tokio(b: &mut Bencher) {
-//     bench_spawn_in_worker::<TokioExecutor>(b)
-// }
+fn bench_spawn_in_worker_tokio(b: &mut Bencher) {
+    bench_spawn_in_worker::<TokioExecutor>(b)
+}
 
-// #[bench]
-// fn bench_spawn_in_worker_async_executor(b: &mut Bencher) {
-//     bench_spawn_in_worker::<AsyncExecutor>(b)
-// }
+fn bench_spawn_in_worker_async_executor(b: &mut Bencher) {
+    bench_spawn_in_worker::<AsyncExecutor>(b)
+}
 
-// fn bench_spawn_in_worker<E: BenchExecutor>(b: &mut Bencher) {
-//     E::block_on(async move {
-//         let b_ptr = b as *mut Bencher as usize;
-//         E::spawn(async move {
-//             let b = unsafe { &mut *(b_ptr as *mut Bencher) };
-//             b.iter(|| {
-//                 E::spawn(async move {});
-//             })
-//         })
-//         .await;
-//     });
-// }
+fn bench_spawn_in_worker<E: BenchExecutor>(b: &mut Bencher) {
+    E::block_on(async move {
+        let b_ptr = b as *mut Bencher as usize;
+        E::spawn(async move {
+            let b = unsafe { &mut *(b_ptr as *mut Bencher) };
+            b.iter(|| {
+                E::spawn(async move {});
+            })
+        })
+        .await;
+    });
+}
 
-// #[bench]
-// fn bench_multi_spawner_uasync(b: &mut Bencher) {
-//     bench_multi_spawner::<UasyncExecutor>(b)
-// }
+benchmark_group!(
+    spawn_in_worker,
+    bench_spawn_in_worker_uasync,
+    bench_spawn_in_worker_tokio,
+    bench_spawn_in_worker_async_executor
+);
 
-// #[bench]
-// fn bench_multi_spawner_tokio(b: &mut Bencher) {
-//     bench_multi_spawner::<TokioExecutor>(b)
-// }
+fn bench_multi_spawner_uasync(b: &mut Bencher) {
+    bench_multi_spawner::<UasyncExecutor>(b)
+}
 
-// #[bench]
-// fn bench_multi_spawner_async_executor(b: &mut Bencher) {
-//     bench_multi_spawner::<AsyncExecutor>(b)
-// }
+fn bench_multi_spawner_tokio(b: &mut Bencher) {
+    bench_multi_spawner::<TokioExecutor>(b)
+}
 
-// fn bench_multi_spawner<E: BenchExecutor>(b: &mut Bencher) {
-//     E::block_on(async move {
-//         let wg = WaitGroup::new();
-//         b.iter(|| {
-//             for _ in 0..10 {
-//                 let wg = wg.add();
-//                 E::spawn(async move {
-//                     let handles = (0..1000).map(|_| E::spawn(async move {}));
-//                     for handle in handles.collect::<Vec<_>>() {
-//                         handle.await;
-//                     }
-//                     wg.done();
-//                 });
-//             }
-//             wg.wait();
-//         });
-//     });
-// }
+fn bench_multi_spawner_async_executor(b: &mut Bencher) {
+    bench_multi_spawner::<AsyncExecutor>(b)
+}
 
-// #[bench]
-// fn bench_ping_pong_uasync(b: &mut Bencher) {
-//     bench_ping_pong::<UasyncExecutor>(b)
-// }
+fn bench_multi_spawner<E: BenchExecutor>(b: &mut Bencher) {
+    E::block_on(async move {
+        let wg = WaitGroup::new();
+        b.iter(|| {
+            for _ in 0..10 {
+                let wg = wg.add();
+                E::spawn(async move {
+                    let handles = (0..1000).map(|_| E::spawn(async move {}));
+                    for handle in handles.collect::<Vec<_>>() {
+                        handle.await;
+                    }
+                    wg.done();
+                });
+            }
+            wg.wait();
+        });
+    });
+}
 
-// #[bench]
-// fn bench_ping_pong_tokio(b: &mut Bencher) {
-//     bench_ping_pong::<TokioExecutor>(b)
-// }
+benchmark_group!(
+    multi_spawner,
+    bench_multi_spawner_uasync,
+    bench_multi_spawner_tokio,
+    bench_multi_spawner_async_executor,
+);
 
-// #[bench]
-// fn bench_ping_pong_async_executor(b: &mut Bencher) {
-//     bench_ping_pong::<AsyncExecutor>(b)
-// }
+fn bench_ping_pong_uasync(b: &mut Bencher) {
+    bench_ping_pong::<UasyncExecutor>(b)
+}
 
-// fn bench_ping_pong<E: BenchExecutor>(b: &mut Bencher) {
-//     E::block_on(async move {
-//         let wg = WaitGroup::new();
-//         b.iter(|| {
-//             for _ in 0..1000 {
-//                 let wg = wg.add();
-//                 E::spawn(async move {
-//                     let (tx1, rx1) = tokio::sync::oneshot::channel();
-//                     let (tx2, rx2) = tokio::sync::oneshot::channel();
+fn bench_ping_pong_tokio(b: &mut Bencher) {
+    bench_ping_pong::<TokioExecutor>(b)
+}
 
-//                     E::spawn(async move {
-//                         rx1.await.unwrap();
-//                         tx2.send(()).unwrap();
-//                     });
+fn bench_ping_pong_async_executor(b: &mut Bencher) {
+    bench_ping_pong::<AsyncExecutor>(b)
+}
 
-//                     tx1.send(()).unwrap();
-//                     rx2.await.unwrap();
-//                     wg.done();
-//                 });
-//             }
-//             wg.wait();
-//         });
-//     });
-// }
+fn bench_ping_pong<E: BenchExecutor>(b: &mut Bencher) {
+    E::block_on(async move {
+        let wg = WaitGroup::new();
+        b.iter(|| {
+            for _ in 0..1000 {
+                let wg = wg.add();
+                E::spawn(async move {
+                    let (tx1, rx1) = tokio::sync::oneshot::channel();
+                    let (tx2, rx2) = tokio::sync::oneshot::channel();
 
-// #[bench]
-// fn bench_chain_uasync(b: &mut Bencher) {
-//     bench_chain::<UasyncExecutor>(b)
-// }
+                    E::spawn(async move {
+                        rx1.await.unwrap();
+                        tx2.send(()).unwrap();
+                    });
 
-// #[bench]
-// fn bench_chain_tokio(b: &mut Bencher) {
-//     bench_chain::<TokioExecutor>(b)
-// }
+                    tx1.send(()).unwrap();
+                    rx2.await.unwrap();
+                    wg.done();
+                });
+            }
+            wg.wait();
+        });
+    });
+}
 
-// #[bench]
-// fn bench_chain_async_executor(b: &mut Bencher) {
-//     bench_chain::<AsyncExecutor>(b)
-// }
+benchmark_group!(
+    ping_pong,
+    bench_ping_pong_uasync,
+    bench_ping_pong_tokio,
+    bench_ping_pong_async_executor,
+);
 
-// fn bench_chain<E: BenchExecutor>(b: &mut Bencher) {
-//     E::block_on(async move {
-//         let wg = WaitGroup::new();
-//         b.iter(|| {
-//             fn chain_iter<E: BenchExecutor>(iter: usize, wg: WaitGroup) {
-//                 match iter {
-//                     0 => wg.done(),
-//                     n => std::mem::drop(E::spawn(async move {
-//                         chain_iter::<E>(n - 1, wg)
-//                     })),
-//                 }
-//             }
+fn bench_chain_uasync(b: &mut Bencher) {
+    bench_chain::<UasyncExecutor>(b)
+}
 
-//             chain_iter::<E>(1000, wg.add());
-//             wg.wait();
-//         });
-//     });
-// }
+fn bench_chain_tokio(b: &mut Bencher) {
+    bench_chain::<TokioExecutor>(b)
+}
 
-// #[bench]
-// fn bench_yield_uasync(b: &mut Bencher) {
-//     bench_yield::<UasyncExecutor>(b)
-// }
+fn bench_chain_async_executor(b: &mut Bencher) {
+    bench_chain::<AsyncExecutor>(b)
+}
 
-// #[bench]
-// fn bench_yield_tokio(b: &mut Bencher) {
-//     bench_yield::<TokioExecutor>(b)
-// }
+fn bench_chain<E: BenchExecutor>(b: &mut Bencher) {
+    E::block_on(async move {
+        let wg = WaitGroup::new();
+        b.iter(|| {
+            fn chain_iter<E: BenchExecutor>(iter: usize, wg: WaitGroup) {
+                match iter {
+                    0 => wg.done(),
+                    n => std::mem::drop(E::spawn(async move { chain_iter::<E>(n - 1, wg) })),
+                }
+            }
 
-// #[bench]
-// fn bench_yield_async_executor(b: &mut Bencher) {
-//     bench_yield::<AsyncExecutor>(b)
-// }
+            chain_iter::<E>(1000, wg.add());
+            wg.wait();
+        });
+    });
+}
 
-// fn bench_yield<E: BenchExecutor>(b: &mut Bencher) {
-//     E::block_on(async move {
-//         let wg = WaitGroup::new();
-//         b.iter(|| {
-//             for _ in 0..1000 {
-//                 let wg = wg.add();
-//                 E::spawn(async move {
-//                     for _ in 0..200 {
-//                         tokio::task::yield_now().await;
-//                     }
-//                     wg.done();
-//                 });
-//             }
-//             wg.wait();
-//         });
-//     });
-// }
+benchmark_group!(
+    chain,
+    bench_chain_uasync,
+    bench_chain_tokio,
+    bench_chain_async_executor,
+);
+
+fn bench_yield_uasync(b: &mut Bencher) {
+    bench_yield::<UasyncExecutor>(b)
+}
+
+fn bench_yield_tokio(b: &mut Bencher) {
+    bench_yield::<TokioExecutor>(b)
+}
+
+fn bench_yield_async_executor(b: &mut Bencher) {
+    bench_yield::<AsyncExecutor>(b)
+}
+
+fn bench_yield<E: BenchExecutor>(b: &mut Bencher) {
+    E::block_on(async move {
+        let wg = WaitGroup::new();
+        b.iter(|| {
+            for _ in 0..1000 {
+                let wg = wg.add();
+                E::spawn(async move {
+                    for _ in 0..200 {
+                        tokio::task::yield_now().await;
+                    }
+                    wg.done();
+                });
+            }
+            wg.wait();
+        });
+    });
+}
+
+benchmark_group!(
+    yield_now,
+    bench_yield_uasync,
+    bench_yield_tokio,
+    bench_yield_async_executor,
+);
+
+benchmark_main!(
+    spawn_inject,
+    spawn_in_worker,
+    multi_spawner,
+    ping_pong,
+    chain,
+    yield_now,
+);

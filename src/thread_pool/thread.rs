@@ -33,7 +33,11 @@ impl Thread {
         "ThreadLocal runtime context was destroyed";
 
     pub(super) fn try_current() -> Result<Option<Self>, ()> {
-        ThreadContext::try_with(|tls| tls.as_ref().map(|context| Self { context: context.clone() }))
+        ThreadContext::try_with(|tls| {
+            tls.as_ref().map(|context| Self {
+                context: context.clone(),
+            })
+        })
     }
 
     pub(super) fn current() -> Self {

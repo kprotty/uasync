@@ -116,7 +116,6 @@ impl Builder {
                         (on_thread_start)();
                     }
 
-                    let _thread_enter = Thread::enter(&scheduler, Some(queue_index));
                     scheduler.run(queue_index);
 
                     if let Some(on_thread_stop) = on_thread_stop {
@@ -675,20 +674,29 @@ impl Scheduler {
             }
         }
 
-        let parker = Arc::new(Parker::new());
-        let waker = Waker::from(parker.clone());
-        let mut ctx = Context::from_waker(&waker);
+        let result = {
+            let parker = Arc::new(Parker::new());
+            let waker = Waker::from(parker.clone());
+            let mut ctx = Context::from_waker(&waker);
 
-        let thread_enter = Thread::enter(self, None);
-        if !Arc::ptr_eq(&thread_enter.thread.scheduler, self) {
-            unreachable!("nested block_on() is not supported");
-        }
-
-        loop {
-            match future.as_mut().poll(&mut ctx) {
-                Poll::Ready(output) => return output,
-                Poll::Pending => parker.park(),
+            let thread_enter = Thread::enter(self, None);
+            if !Arc::ptr_eq(&thread_enter.thread.scheduler, self) {
+                unreachable!("nested block_on() is not supported");
             }
+
+            self.on_task_begin();
+            catch_unwind(AssertUnwindSafe(|| loop {
+                match future.as_mut().poll(&mut ctx) {
+                    Poll::Ready(output) => break output,
+                    Poll::Pending => parker.park(),
+                }
+            }))
+        };
+
+        self.on_task_complete();
+        match result {
+            Ok(output) => output,
+            Err(error) => resume_unwind(error)
         }
     }
 
@@ -864,7 +872,7 @@ impl Scheduler {
 
     fn on_task_complete(&self) {
         let tasks = self.tasks.fetch_sub(1, Ordering::AcqRel);
-        assert_ne!(tasks, usize::MAX);
+        assert_ne!(tasks, 0);
 
         if tasks == 1 {
             let state = self.state.load(Ordering::Relaxed);
@@ -876,8 +884,7 @@ impl Scheduler {
 
     fn join(&self, timeout: Option<Duration>) {
         let mut tasks = self.tasks.load(Ordering::Acquire);
-
-        if tasks == 0 {
+        if tasks > 0 {
             self.join_semaphore.wait(timeout);
             tasks = self.tasks.load(Ordering::Acquire);
         }
@@ -982,30 +989,6 @@ struct Semaphore {
 }
 
 impl Semaphore {
-    #[cold]
-    fn sem_wait(&self, timeout: Option<Duration>) -> bool {
-        let mut count = self.count.lock().unwrap();
-        let cond = |count: &mut usize| *count == 0;
-        count = match timeout {
-            None => self.cond.wait_while(count, cond).unwrap(),
-            Some(dur) => self.cond.wait_timeout_while(count, dur, cond).unwrap().0,
-        };
-
-        *count > 0 && {
-            *count -= 1;
-            true
-        }
-    }
-
-    #[cold]
-    fn sem_post(&self, wake: usize) {
-        *self.count.lock().unwrap() += wake;
-        match wake {
-            1 => self.cond.notify_one(),
-            _ => self.cond.notify_all(),
-        }
-    }
-
     fn wait(&self, timeout: Option<Duration>) {
         let value = self.value.fetch_sub(1, Ordering::Acquire);
         if value > 0 {
@@ -1037,6 +1020,30 @@ impl Semaphore {
 
         let wake: usize = inc.min(-value).try_into().unwrap();
         self.sem_post(wake)
+    }
+
+    #[cold]
+    fn sem_wait(&self, timeout: Option<Duration>) -> bool {
+        let mut count = self.count.lock().unwrap();
+        let cond = |count: &mut usize| *count == 0;
+        count = match timeout {
+            None => self.cond.wait_while(count, cond).unwrap(),
+            Some(dur) => self.cond.wait_timeout_while(count, dur, cond).unwrap().0,
+        };
+
+        *count > 0 && {
+            *count -= 1;
+            true
+        }
+    }
+
+    #[cold]
+    fn sem_post(&self, wake: usize) {
+        *self.count.lock().unwrap() += wake;
+        match wake {
+            1 => self.cond.notify_one(),
+            _ => self.cond.notify_all(),
+        }
     }
 }
 

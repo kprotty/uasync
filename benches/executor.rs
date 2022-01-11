@@ -122,7 +122,11 @@ impl BenchExecutor for UasyncExecutor {
     type JoinHandle = uasync::JoinHandle<()>;
 
     fn block_on<F: Future<Output = ()>>(future: F) {
-        uasync::Executor::with_workers(num_cpus::get()).block_on(future)
+        uasync::Builder::new_multi_thread()
+            .worker_threads(num_cpus::get())
+            .build()
+            .unwrap()
+            .block_on(future)
     }
 
     fn spawn<F: Future<Output = ()> + Send + 'static>(future: F) -> Self::JoinHandle {

@@ -1,7 +1,6 @@
 use super::{scheduler::Scheduler, task::Runnable};
 use std::{
     cell::{Cell, RefCell},
-    mem::replace,
     ops::Deref,
     rc::Rc,
     sync::Arc,
@@ -81,7 +80,7 @@ impl Deref for Thread {
 impl Drop for Thread {
     fn drop(&mut self) {
         if Rc::strong_count(&self.context) == 2 {
-            let context = ThreadContext::try_with(|tls| replace(tls, None));
+            let context = ThreadContext::try_with(|tls| tls.take());
             let context = context.unwrap().unwrap();
             assert!(Rc::ptr_eq(&context, &self.context));
         }

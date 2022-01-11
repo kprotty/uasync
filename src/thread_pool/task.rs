@@ -133,7 +133,7 @@ pub async fn yield_now() {
 
             ctx.waker().wake_by_ref();
             self.yielded = true;
-            return Poll::Pending;
+            Poll::Pending
         }
     }
 
@@ -184,10 +184,7 @@ impl TaskState {
     }
 
     fn transition_to_aborted(&self) -> bool {
-        match self.state.swap(Self::ABORTED, Ordering::Release) {
-            Self::IDLE => true,
-            _ => false,
-        }
+        self.state.swap(Self::ABORTED, Ordering::Release) == Self::IDLE
     }
 }
 
@@ -350,10 +347,12 @@ where
                     Ok(Poll::Ready(output)) => TaskData::Ready(output),
                     Ok(Poll::Pending) => {
                         drop(data);
-                        return match self.state.transition_to_idle() {
-                            false => thread.scheduler.schedule(self, Some(thread), true),
-                            _ => {}
-                        };
+                        if self.state.transition_to_idle() {
+                            return;
+                        }
+
+                        thread.scheduler.schedule(self, Some(thread), true);
+                        return;
                     }
                 }
             }
@@ -377,7 +376,7 @@ where
     F::Output: Send + 'static,
 {
     fn poll_join(&self, ctx: &mut Context<'_>) -> Poll<Result<F::Output, JoinError>> {
-        if let Poll::Pending = self.waker.poll(ctx) {
+        if self.waker.poll(ctx).is_pending() {
             return Poll::Pending;
         }
 

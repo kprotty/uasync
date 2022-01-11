@@ -55,8 +55,7 @@ impl RandomSequence {
         Self {
             range,
             co_prime: (range.get() / 2..range.get())
-                .filter(|&n| gcd(n, range.get()) == 1)
-                .next()
+                .find(|&n| gcd(n, range.get()) == 1)
                 .and_then(NonZeroUsize::new)
                 .or(NonZeroUsize::new(1))
                 .unwrap(),

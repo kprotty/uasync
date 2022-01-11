@@ -85,7 +85,10 @@ impl Scheduler {
     const STATE_MASK: usize = (1 << Self::STATE_BITS) - 1;
     const SHUTDOWN_MASK: usize = 1 << (usize::BITS - 1);
 
+    #[allow(clippy::erasing_op)]
     const IDLE_SHIFT: u32 = Self::STATE_BITS * 0;
+
+    #[allow(clippy::identity_op)]
     const SEARCHING_SHIFT: u32 = Self::STATE_BITS * 1;
 
     fn unpark(&self) {
@@ -129,7 +132,7 @@ impl Scheduler {
 
         let searching = (state >> Self::SEARCHING_SHIFT) & Self::STATE_MASK;
         assert!(searching < self.run_queues.len());
-        return true;
+        true
     }
 
     fn discovered(&self, was_searching: bool) -> bool {
@@ -147,7 +150,7 @@ impl Scheduler {
             }
         }
 
-        return false;
+        false
     }
 
     fn park(&self, was_searching: bool) -> Option<bool> {

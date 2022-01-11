@@ -1,3 +1,5 @@
+#![allow(clippy::mutex_atomic)]
+
 use std::{
     sync::atomic::{AtomicIsize, Ordering},
     sync::{Condvar, Mutex},

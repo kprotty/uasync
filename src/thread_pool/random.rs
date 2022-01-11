@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, mem::replace};
+use std::{mem::replace, num::NonZeroUsize};
 
 pub(super) struct Rng {
     xorshift: NonZeroUsize,
@@ -9,7 +9,7 @@ impl Rng {
         Self {
             xorshift: NonZeroUsize::new(seed)
                 .or(NonZeroUsize::new(0xdeadbeef))
-                .unwrap()
+                .unwrap(),
         }
     }
 }
@@ -34,7 +34,7 @@ impl Iterator for Rng {
     }
 }
 
-pub(super) RandomSequence {
+pub(super) struct RandomSequence {
     range: NonZeroUsize,
     co_prime: NonZeroUsize,
 }
@@ -54,7 +54,7 @@ impl RandomSequence {
 
         Self {
             range,
-            co_prime: (range.get() / 2 .. range.get())
+            co_prime: (range.get() / 2..range.get())
                 .filter(|&n| gcd(n, range.get()) == 1)
                 .next()
                 .or(NonZeroUsize::new(1))

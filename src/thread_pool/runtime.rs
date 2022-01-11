@@ -1,10 +1,10 @@
-use super::{handle::Handle, enter::EnterGuard, task::{Task, JoinHandle}, thread::{Thread, ThreadContext}};
-use std::{
-    fmt,
-    io,
-    time::Duration,
-    future::Future,
+use super::{
+    enter::EnterGuard,
+    handle::Handle,
+    task::{JoinHandle, Task},
+    thread::{Thread, ThreadContext},
 };
+use std::{fmt, future::Future, io, time::Duration};
 
 pub struct Runtime {
     handle: Handle,

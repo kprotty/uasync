@@ -1,8 +1,8 @@
 use super::task::Runnable;
 use std::{
-    sync::{Arc, Mutex},
     collections::VecDeque,
     sync::atomic::{AtomicBool, Ordering},
+    sync::{Arc, Mutex},
 };
 
 #[derive(Default)]

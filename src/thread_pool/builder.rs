@@ -1,11 +1,5 @@
-use super::{runtime::Runtime, scheduler::Scheduler}; 
-use std::{
-    io,
-    thread,
-    num::NonZeroUsize,
-    sync::Arc,
-    fmt,
-};
+use super::{runtime::Runtime, scheduler::Scheduler};
+use std::{fmt, io, num::NonZeroUsize, sync::Arc, thread};
 
 pub struct Builder {
     stack_size: Option<NonZeroUsize>,

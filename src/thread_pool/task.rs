@@ -1,20 +1,20 @@
 use super::{
-    waker::AtomicWaker,
     scheduler::Scheduler,
     thread::{Thread, ThreadContext},
+    waker::AtomicWaker,
 };
 use std::{
-    io,
-    fmt,
-    thread,
     any::Any,
-    sync::{Arc, Mutex},
-    mem::{replace, drop},
-    sync::atomic::{AtomicU8, AtomicBool, Ordering},
+    fmt,
+    future::Future,
+    io,
+    mem::{drop, replace},
     panic::{catch_unwind, resume_unwind, AssertUnwindSafe},
     pin::Pin,
-    future::Future,
-    task::{Waker, Wake, Context, Poll},
+    sync::atomic::{AtomicBool, AtomicU8, Ordering},
+    sync::{Arc, Mutex},
+    task::{Context, Poll, Wake, Waker},
+    thread,
 };
 
 pub fn spawn<F>(future: F) -> JoinHandle<F::Output>
@@ -105,7 +105,7 @@ impl JoinError {
     pub fn try_into_panic(self) -> Result<Box<dyn Any + Send + 'static, Self>> {
         match self.panic {
             Some(panic) => Ok(panic),
-            None => Err(self)
+            None => Err(self),
         }
     }
 
@@ -203,15 +203,12 @@ pub(super) struct Task<F: Future> {
 }
 
 impl<F: Future> Task<F> {
-    pub(super) fn block_on<F: Future>(
-        self: &Arc<Self>,
-        mut future: Pin<Box<F>>,
-    ) -> F::Output {
+    pub(super) fn block_on<F: Future>(self: &Arc<Self>, mut future: Pin<Box<F>>) -> F::Output {
         struct Parker {
             thread: thread::Thread,
             unparked: AtomicBool,
         }
-    
+
         impl Parker {
             fn new() -> Self {
                 Self {
@@ -219,36 +216,36 @@ impl<F: Future> Task<F> {
                     unparked: AtomicBool::new(false),
                 }
             }
-    
+
             fn park(&self) {
                 while !self.unparked.swap(false, Ordering::Acquire) {
                     thread::park();
                 }
             }
         }
-    
+
         impl Wake for Parker {
             fn wake(self: Arc<Self>) {
                 self.wake_by_ref()
             }
-    
+
             fn wake_by_ref(self: &Arc<Self>) {
                 if !self.unparked.swap(true, Ordering::Release) {
                     self.thread.unpark();
                 }
             }
         }
-    
+
         let result = {
             let parker = Arc::new(Parker::new());
             let waker = Waker::from(parker.clone());
             let mut ctx = Context::from_waker(&waker);
-    
+
             let thread_enter = Thread::enter(self, None);
             if !Arc::ptr_eq(&thread_enter.thread.scheduler, self) {
                 unreachable!("nested block_on() is not supported");
             }
-    
+
             self.on_task_begin();
             catch_unwind(AssertUnwindSafe(|| loop {
                 match future.as_mut().poll(&mut ctx) {
@@ -257,11 +254,11 @@ impl<F: Future> Task<F> {
                 }
             }))
         };
-    
+
         self.on_task_complete();
         match result {
             Ok(output) => output,
-            Err(error) => resume_unwind(error)
+            Err(error) => resume_unwind(error),
         }
     }
 }
@@ -343,7 +340,7 @@ where
                     }
                     _ => unreachable!(),
                 };
-    
+
                 match poll_result {
                     Err(error) => TaskData::Panic(error),
                     Ok(Poll::Ready(output)) => TaskData::Ready(output),
@@ -382,9 +379,7 @@ where
         match replace(&mut *self.data.try_lock().unwrap(), TaskData::Empty) {
             TaskData::Ready(output) => Poll::Ready(Ok(output)),
             TaskData::Aborted => Poll::Ready(Err(JoinError { panic: None })),
-            TaskData::Panic(error) => Poll::Ready(Err(JoinError {
-                panic: Some(error)
-            })),
+            TaskData::Panic(error) => Poll::Ready(Err(JoinError { panic: Some(error) })),
             _ => unreachable!(),
         }
     }

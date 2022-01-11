@@ -1,14 +1,14 @@
 use super::{
     queue::Queue,
-    thread::{Thread, ThreadContext},
+    random::{RandomSequence, Rng},
     semaphore::Semaphore,
-    random::{Rng, RandomSequence},
+    thread::{Thread, ThreadContext},
 };
 use std::{
+    num::NonZeroUsize,
+    sync::atomic::{fence, AtomicUsize, Ordering},
     sync::Arc,
     time::Duration,
-    num::NonZeroUsize,
-    sync::atomic::{AtomicUsize, Ordering, fence},
 };
 
 pub(super) struct Scheduler {
@@ -39,13 +39,20 @@ impl Scheduler {
             tasks: AtomicUsize::new(0),
             state: AtomicUsize::new(0),
             injector: Queue::default(),
-            run_queues: (0..worker_threads.get()).map(|_| Queue::default()).collect(),
+            run_queues: (0..worker_threads.get())
+                .map(|_| Queue::default())
+                .collect(),
             on_thread_park,
             on_thread_unpark,
         }
     }
 
-    pub(super) fn schedule(&self, runnable: Arc<dyn Runnable>, thread: Option<&Thread>, be_fair: bool) {
+    pub(super) fn schedule(
+        &self,
+        runnable: Arc<dyn Runnable>,
+        thread: Option<&Thread>,
+        be_fair: bool,
+    ) {
         if let Some(thread) = thread {
             if let Some(queue_index) = thread.queue_index {
                 let mut runnable = Some(runnable);
@@ -241,7 +248,7 @@ impl Scheduler {
 
     pub(super) fn run_worker(self: &Arc<Self>, queue_index: usize) {
         let thread = Thread::enter(self, Some(queue_index));
-        
+
         let mut tick = queue_index;
         let mut is_searching = false;
         let mut rng = Rng::new(queue_index);

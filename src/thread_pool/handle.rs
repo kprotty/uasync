@@ -1,9 +1,10 @@
-use super::{scheduler::Scheduler, enter::EnterGuard, thread::{Thread, ThreadContext}, task::{Task, JoinHandle}};
-use std::{
-    fmt,
-    sync::Arc,
-    future::Future,
+use super::{
+    enter::EnterGuard,
+    scheduler::Scheduler,
+    task::{JoinHandle, Task},
+    thread::{Thread, ThreadContext},
 };
+use std::{fmt, future::Future, sync::Arc};
 
 pub struct TryCurrentError {
     missing: bool,
@@ -66,7 +67,9 @@ impl Handle {
 
     pub fn try_current() -> Result<Self, TryCurrentError> {
         match Thread::try_current() {
-            Ok(Some(thread)) => Ok(Self { scheduler: thread.scheduler.clone() }),
+            Ok(Some(thread)) => Ok(Self {
+                scheduler: thread.scheduler.clone(),
+            }),
             Ok(None) => Err(TryCurrentError { missing: true }),
             Err(_) => Err(TryCurrentError { missing: false }),
         }

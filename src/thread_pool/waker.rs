@@ -1,8 +1,8 @@
 use std::{
-    sync::Mutex,
     mem::replace,
     sync::atomic::{AtomicU8, Ordering},
-    task::{Waker, Context, Poll},
+    sync::Mutex,
+    task::{Context, Poll, Waker},
 };
 
 #[derive(Default)]

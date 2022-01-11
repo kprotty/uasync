@@ -1,13 +1,13 @@
 use std::{
+    sync::atomic::{AtomicIsize, AtomicUsize, Ordering},
+    sync::{Condvar, Mutex},
     time::Duration,
-    sync::{Mutex, Condvar},
-    sync::atomic::{AtomicUsize, AtomicIsize, Ordering},
 };
 
 #[derive(Default)]
 pub struct Semaphore {
     value: AtomicIsize,
-    inner: InnerSemaphore, 
+    inner: InnerSemaphore,
 }
 
 impl Semaphore {

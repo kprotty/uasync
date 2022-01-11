@@ -1,11 +1,8 @@
-use super::{
-    scheduler::Scheduler,
-    task::Runnable,
-};
+use super::{scheduler::Scheduler, task::Runnable};
 use std::{
-    rc::Rc,
     cell::{Cell, RefCell},
     ops::Deref,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -28,8 +25,10 @@ pub(super) struct Thread {
 }
 
 impl Thread {
-    pub(super) const CONTEXT_MISSING_ERROR: &'static str = "Thread not running in the context of a Runtime";
-    pub(super) const CONTEXT_DESTROYED_ERROR: &'static str = "ThreadLocal runtime context was destroyed";
+    pub(super) const CONTEXT_MISSING_ERROR: &'static str =
+        "Thread not running in the context of a Runtime";
+    pub(super) const CONTEXT_DESTROYED_ERROR: &'static str =
+        "ThreadLocal runtime context was destroyed";
 
     pub(super) fn try_current() -> Result<Option<Self>, ()> {
         let context = ThreadContext::try_with(|tls| tls.as_ref().map(Rc::clone))?;
@@ -47,7 +46,9 @@ impl Thread {
     pub(super) fn enter(scheduler: &Arc<Scheduler>, queue_index: Option<usize>) -> Self {
         ThreadContext::try_with(|tls| {
             if let Some(context) = tls {
-                return Self { context: context.clone() };
+                return Self {
+                    context: context.clone(),
+                };
             }
 
             let context = Rc::new(ThreadContext {
@@ -59,7 +60,8 @@ impl Thread {
 
             *tls = Some(context.clone());
             Self { context }
-        }).unwrap()
+        })
+        .unwrap()
     }
 }
 

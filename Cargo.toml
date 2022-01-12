@@ -1,7 +1,12 @@
 [package]
 name = "uasync"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "fast, safe, async executor"
+documentation = "https://docs.rs/uasync"
+keywords = ["asynchronous", "executor", "spawn"]
+categories = ["asynchronous", "concurrency"]
 
 [[bench]]
 name = "executor"

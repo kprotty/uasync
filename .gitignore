@@ -1,1 +1,6 @@
+.vscode/
+.history/
+
 target/
+Cargo.lock
+NUL

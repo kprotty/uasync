@@ -22,6 +22,11 @@ impl Runtime {
         Builder::new_multi_thread().build()
     }
 
+    pub fn new_with_thread_count(threads: usize) -> io::Result<Self> {
+        let threads = if threads > 1 { threads } else { 2 };
+        Builder::new_multi_thread().worker_threads(threads).build()
+    }
+
     pub fn handle(&self) -> &Handle {
         &self.handle
     }

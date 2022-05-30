@@ -42,8 +42,8 @@ impl Thread {
     pub(super) fn current() -> Self {
         match Self::try_current() {
             Ok(Some(thread)) => thread,
-            Ok(None) => unreachable!(Self::CONTEXT_MISSING_ERROR),
-            Err(_) => unreachable!(Self::CONTEXT_DESTROYED_ERROR),
+            Ok(None) => unreachable!("{}", Self::CONTEXT_MISSING_ERROR),
+            Err(_) => unreachable!("{}", Self::CONTEXT_DESTROYED_ERROR),
         }
     }
 
